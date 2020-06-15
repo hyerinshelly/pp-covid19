@@ -13,29 +13,20 @@ released = dict()
 candidate = dict()
 negative = dict()
 
-acc_confirmed = 0
-acc_death = 0
-acc_released = 0
-acc_candidate = 0
-acc_negative = 0
-
-with open('corona_data.csv', 'r') as rf:
+I_data = []
+with open('corona_data_daily.csv', 'r') as rf:
     reader = csv.reader(rf, delimiter=',')
     for row in reader:
-        if row[1] != 'date':
-            date = int(row[1])
-            if 20200301 <= date and date <= 20200331:
-                confirmed[date] = int(row[2]) - acc_confirmed
-                death[date] = int(row[3]) - acc_death
-                released[date] = int(row[4]) - acc_released
-                candidate[date] = int(row[5]) - acc_candidate
-                negative[date] = int(row[6]) - acc_negative
-                
-            acc_confirmed = int(row[2])
-            acc_death = int(row[3])
-            acc_released = int(row[4])
-            acc_candidate = int(row[5])
-            acc_negative = int(row[6])
+        date = int(row[0])
+        if 20200301 <= date and date <= 20200331:
+            confirmed[date] = int(row[1])
+            death[date] = int(row[2])
+            released[date] = int(row[3])
+            candidate[date] = int(row[4])
+            negative[date] = int(row[5])
+        I_data.append(int(row[1]))
+
+
 
 data = dict()
 data['confirmed'] = confirmed
@@ -45,16 +36,21 @@ data['candidate'] = candidate
 data['negative'] = negative
 
 def SEIR_model(
+    total_duration = -1,
     # constants
     N = 51844627,
-    c0 = 30,
+    c0 = 6.6,
     data = data,
+    S0 = -1,
+    E0 = -1,
+    I0 = -1,
+    R0 = -1,
 ):
     # Initials
-    S0 = N
-    E0 = 0 #3317
-    I0 = 1 #3736
-    R0 = 0 #30
+    S0 = N if S0 == -1 else S0
+    E0 = 0 if E0 == -1 else E0
+    I0 = 1 if I0 == -1 else I0
+    R0 = 0 if R0 == -1 else R0
 
     # Population accumulation of each cases
     month_confirmed = sum(data['confirmed'].values())
@@ -126,18 +122,28 @@ def SEIR_model(
 
     result = {'S': [S0], 'E': [E0], 'I':[I0], 'R':[R0]}
     S, E, I, R = S0, E0, I0, R0
-    flag = 0
-    while True:
-        if flag == 1 and I <= 5:
-            break
-        if I > 100:
-            flag = 1
-        new_S, new_E, new_I, new_R = new_SEIR(S, E, I, R)
-        result['S'].append(new_S)
-        result['E'].append(new_E)
-        result['I'].append(new_I)
-        result['R'].append(new_R)
-        S, E, I, R = new_S, new_E, new_I, new_R
+    if total_duration == -1:
+        flag = 0
+        idx = 0
+        while True:
+            if flag == 1 and I <= 5:
+                break
+            if I > 100:
+                flag = 1
+            new_S, new_E, new_I, new_R = new_SEIR(S, E, I, R)
+            result['S'].append(new_S)
+            result['E'].append(new_E)
+            result['I'].append(new_I)
+            result['R'].append(new_R)
+            S, E, I, R = new_S, new_E, new_I, new_R
+    else:
+        for i in range(total_duration):
+            new_S, new_E, new_I, new_R = new_SEIR(S, E, I, R)
+            result['S'].append(new_S)
+            result['E'].append(new_E)
+            result['I'].append(new_I)
+            result['R'].append(new_R)
+            S, E, I, R = new_S, new_E, new_I, new_R
 
     return result
 
@@ -145,14 +151,18 @@ def SEIR_model(
 def SQEIR_model(
     # constants
     N = 51844627,
-    c0 = 15,
+    c0 = 6.6,
     data = data,
+    S0 = -1,
+    E0 = -1,
+    I0 = -1,
+    R0 = -1,
 ):
     # Initials
-    S0 = N
-    E0 = 0
-    I0 = 1
-    R0 = 0
+    S0 = N if S0 == -1 else S0
+    E0 = 0 if E0 == -1 else E0
+    I0 = 1 if I0 == -1 else I0
+    R0 = 0 if R0 == -1 else R0
     # Added for Quarantine #이거 정해야함!
     S_q0 = 0
     E_q0 = 0
@@ -279,24 +289,43 @@ def SQEIR_model(
         S, E, I, R, S_q, E_q, I_q = new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
         idx += 1
     return result
+# 1번
+result = SEIR_model()
 
+# 2번
 result = SQEIR_model()
 
-df = pd.DataFrame({'x': range(len(result['S'])),
-                   'S': result['S'],
-                   'S_q': result['S_q'],
-                   'E': result['E'],
-                   'E_q': result['E_q'],
-                   'I': result['I'],
-                   'I_q': result['I_q'],
-                   'R': result['R']})
+# 3번
+result = dict()
+
+# ~ 20200218 
+result1 = SEIR_model(total_duration=30)
+# 20200219(신천지) ~ 20200405(자가격리 법제화)
+result2 = SEIR_model(total_duration=45, c0=30, S0=result1['S'][-1], E0=result1['E'][-1], I0=result1['I'][-1], R0=result1['R'][-1])
+# 20200406 ~ 
+result3 = SQEIR_model(S0=result2['S'][-1], E0=result2['E'][-1], I0=result2['I'][-1], R0=result2['R'][-1])
+
+result['S'] = result1['S'] + result2['S'] + result3['S']
+result['E'] = result1['E'] + result2['E'] + result3['E']
+result['I'] = result1['I'] + result2['I'] + result3['I']
+result['R'] = result1['R'] + result2['R'] + result3['R']
+result['S_q'] = [0 for i in range(len(result1['S']) + len(result2['S'])) ] +result3['S_q']
+result['E_q'] = [0 for i in range(len(result1['S']) + len(result2['S'])) ] + result3['E_q']
+result['I_q'] = [0 for i in range(len(result1['S']) + len(result2['S'])) ] + result3['I_q']
+
+print(len(result['R']), len([sum(x) for x in zip(result['S'], result['S_q'])]), len(result['R']))
+df = pd.DataFrame({'x': list(range(len(result['S']))),
+                   'S': [sum(x) for x in zip(result['S'], result['S_q'])],
+                   'E': [sum(x) for x in zip(result['E'], result['E_q'])],
+                   'I': [sum(x) for x in zip(result['I'], result['I_q'])],
+                   'R': result['R'],
+                   'Data_I': I_data[:128]})
 
 plt.plot('x', 'S', data=df, color='red', label='Susceptible')
-plt.plot('x', 'S_q', data=df, color='pink', label='Quarentined suceptible')
 plt.plot('x', 'E', data=df, color='orange', label='Exposed')
-plt.plot('x', 'E_q', data=df, color='brown', label='Quarentined exposed')
 plt.plot('x', 'I', data=df, color='green', label='Infectious')
-plt.plot('x', 'I_q', data=df, color='darkgreen', label='Quarentined infectious')
 plt.plot('x', 'R', data=df, color='skyblue', label='Recovered')
+plt.plot('x', 'Data_I', data=df, color='black', label='Data')
 plt.legend()
 plt.show()
+print('finish')
