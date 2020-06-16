@@ -154,10 +154,10 @@ def SEIR_model(
 
 
 def SQEIR_model(
-    total_duration = -1,
+    total_duration = [-1],
     # constants
     N = 51844627,
-    c0 = 6.6,
+    c0 = [6.6],
     data = data,
     S0 = -1,
     E0 = -1,
@@ -167,6 +167,7 @@ def SQEIR_model(
     E_q0 = -1,
     I_q0 = -1,
 ):
+    print(type(c0))
     # Initials
     S0 = N if S0 == -1 else S0
     E0 = 0 if E0 == -1 else E0
@@ -250,9 +251,9 @@ def SQEIR_model(
     P61 = 1 - np.exp(-1 * appr_gamma_q * h)
 
     # SQEIR
-    def new_SQEIR(S_t, E_t, I_t, R_t, S_q_t, E_q_t, I_q_t):
-        P11 = 1 - np.exp(-1 * appr_beta.item() * (c0 * I_t)/N * h)
-        P12 = 1 - np.exp(-1 * (1 - appr_beta.item()) * appr_q * (c0 * I_t)/N * h)
+    def new_SQEIR(S_t, E_t, I_t, R_t, S_q_t, E_q_t, I_q_t, c_t):
+        P11 = 1 - np.exp(-1 * appr_beta.item() * (c_t * I_t)/N * h)
+        P12 = 1 - np.exp(-1 * (1 - appr_beta.item()) * appr_q * (c_t * I_t)/N * h)
 
         #이거 샘플 몇개 뽑지? 일단 100개 해볼게
         B11 = pm.Poisson.dist(mu = S_t * P11).random(size = 100).mean()   
@@ -278,41 +279,46 @@ def SQEIR_model(
 
     result = {'S': [S0], 'E': [E0], 'I':[I0], 'R':[R0], 'S_q':[S_q0], 'E_q':[E_q0], 'I_q':[I_q0]}
     S, E, I, R, S_q, E_q, I_q = S0, E0, I0, R0, S_q0, E_q0, I_q0
-    flag = 0
-    idx = 0
-    if total_duration == -1:
-        while True:
-            if flag == 1 and I <= 2:
-                break
-            if I > 10:
-                flag = 1
-            if idx%10 == 0:
-                print(I + I_q)
-            new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q = new_SQEIR(S, E, I, R, S_q, E_q, I_q)
-            result['S'].append(new_S)
-            result['E'].append(new_E)
-            result['I'].append(new_I)
-            result['R'].append(new_R)
-            result['S_q'].append(new_S_q)
-            result['E_q'].append(new_E_q)
-            result['I_q'].append(new_I_q)
-            S, E, I, R, S_q, E_q, I_q = new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
-            idx += 1
-    else:
-        for i in range(total_duration):
-            if i%10 == 0:
-                print(I + I_q)
-            new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q = new_SQEIR(S, E, I, R, S_q, E_q, I_q)
-            result['S'].append(new_S)
-            result['E'].append(new_E)
-            result['I'].append(new_I)
-            result['R'].append(new_R)
-            result['S_q'].append(new_S_q)
-            result['E_q'].append(new_E_q)
-            result['I_q'].append(new_I_q)
-            S, E, I, R, S_q, E_q, I_q = new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
+    for i in range(len(total_duration)):
+        duration = total_duration[i]
+        c0_i = c0[i]
+
+        flag = 0
+        idx = 0
+        if duration == -1:
+            while True:
+                if flag == 1 and I <= 2:
+                    break
+                if I > 10:
+                    flag = 1
+                if idx%10 == 0:
+                    print(I + I_q)
+                new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q = new_SQEIR(S, E, I, R, S_q, E_q, I_q, c0_i)
+                result['S'].append(new_S)
+                result['E'].append(new_E)
+                result['I'].append(new_I)
+                result['R'].append(new_R)
+                result['S_q'].append(new_S_q)
+                result['E_q'].append(new_E_q)
+                result['I_q'].append(new_I_q)
+                S, E, I, R, S_q, E_q, I_q = new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
+                idx += 1
+        else:
+            for i in range(duration):
+                if i%10 == 0:
+                    print(I + I_q)
+                new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q = new_SQEIR(S, E, I, R, S_q, E_q, I_q, c0_i)
+                result['S'].append(new_S)
+                result['E'].append(new_E)
+                result['I'].append(new_I)
+                result['R'].append(new_R)
+                result['S_q'].append(new_S_q)
+                result['E_q'].append(new_E_q)
+                result['I_q'].append(new_I_q)
+                S, E, I, R, S_q, E_q, I_q = new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
 
     return result
+    
 # # 1번
 # result = SEIR_model()
 
@@ -326,28 +332,28 @@ result = dict()
 result1 = SEIR_model(total_duration=29, c0=40)
 print('first model finished')
 # 20200219(신천지) ~ 20200322(사회적 거리두기)
-result2 = SQEIR_model(total_duration=33, c0=40, S0=result1['S'][-1], E0=result1['E'][-1], I0=result1['I'][-1], R0=result1['R'][-1])
-print('second model finished')
-# 20200323 ~ 20200611
-result3 = SQEIR_model(
-    total_duration=81,
-    S0=result2['S'][-1],
-    E0=result2['E'][-1],
-    I0=result2['I'][-1],
-    R0=result2['R'][-1],
-    S_q0=result2['S_q'][-1],
-    E_q0=result2['E_q'][-1],
-    I_q0=result2['I_q'][-1],
-)
-print('third model finished')
+result2 = SQEIR_model(total_duration=[33, 81], c0=[40, 6.6], S0=result1['S'][-1], E0=result1['E'][-1], I0=result1['I'][-1], R0=result1['R'][-1])
+print('second and third model finished')
+# # 20200323 ~ 20200611
+# result3 = SQEIR_model(
+#     total_duration=81,
+#     S0=result2['S'][-1],
+#     E0=result2['E'][-1],
+#     I0=result2['I'][-1],
+#     R0=result2['R'][-1],
+#     S_q0=result2['S_q'][-1],
+#     E_q0=result2['E_q'][-1],
+#     I_q0=result2['I_q'][-1],
+# )
+# print('third model finished')
 
-result['S'] = result1['S'] + result2['S'] + result3['S']
-result['E'] = result1['E'] + result2['E'] + result3['E']
-result['I'] = result1['I'] + result2['I'] + result3['I']
-result['R'] = result1['R'] + result2['R'] + result3['R']
-result['S_q'] = [0 for i in range(len(result1['S'])) ] + result2['S_q'] + result3['S_q']
-result['E_q'] = [0 for i in range(len(result1['E'])) ] + result2['E_q'] + result3['E_q']
-result['I_q'] = [0 for i in range(len(result1['I'])) ] + result2['I_q'] + result3['I_q']
+result['S'] = result1['S'] + result2['S']
+result['E'] = result1['E'] + result2['E']
+result['I'] = result1['I'] + result2['I']
+result['R'] = result1['R'] + result2['R']
+result['S_q'] = [0 for i in range(len(result1['S'])) ] + result2['S_q']
+result['E_q'] = [0 for i in range(len(result1['E'])) ] + result2['E_q']
+result['I_q'] = [0 for i in range(len(result1['I'])) ] + result2['I_q']
 
 data_I = []
 
