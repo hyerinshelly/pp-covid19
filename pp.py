@@ -85,6 +85,7 @@ def SEIR_model(
 
     warnings.simplefilter("ignore")
 
+    # Showing posteriors by MCMC
     # pm.traceplot(trace)
     # plt.show()
 
@@ -120,7 +121,7 @@ def SEIR_model(
 
         return new_S, new_E, new_I, new_R 
 
-    result = {'S': [S0], 'E': [E0], 'I':[I0], 'R':[R0]}
+    result = {'S': [S0], 'E': [E0], 'I':[I0], 'R':[R0], 'beta': appr_beta, 'sigma': appr_sigma, 'gamma': appr_gamma, 'alpha': appr_alpha}
     S, E, I, R = S0, E0, I0, R0
     if total_duration == -1:
         flag = 0
@@ -140,7 +141,7 @@ def SEIR_model(
             S, E, I, R = new_S, new_E, new_I, new_R
             idx+=1
     else:
-        for i in range(total_duration):
+        for i in range(total_duration-1):
             if i%10 == 0:
                 print(I)
             new_S, new_E, new_I, new_R = new_SEIR(S, E, I, R)
@@ -197,8 +198,6 @@ def SQEIR_model(
 
     # Do posterior inference
     with pm.Model() as model:
-
-        # Normalized value
         # Prior (p(x))
         b_mu = pm.Normal('b_mu', mu = 0, sigma = 1)
         s_mu = pm.Normal('s_mu', mu = 0, sigma = 1)
@@ -224,8 +223,9 @@ def SQEIR_model(
 
     warnings.simplefilter("ignore")
 
-#     pm.traceplot(trace)
-#     plt.show()
+    # Showing posteriors by MCMC
+    # pm.traceplot(trace)
+    # plt.show()
 
     # Approximate samples from posterior (p(x|y))
     ppc = pm.sample_posterior_predictive(trace, model=model, samples=100)
@@ -253,7 +253,7 @@ def SQEIR_model(
     # SQEIR
     def new_SQEIR(S_t, E_t, I_t, R_t, S_q_t, E_q_t, I_q_t, c_t):
         P11 = 1 - np.exp(-1 * appr_beta.item() * (c_t * I_t)/N * h)
-        P12 = 1 - np.exp(-1 * (1 - appr_beta.item()) * appr_q * (c_t * I_t)/N * h)
+        P12 = 1 - np.exp(-1 * (1 - appr_beta.item()) * appr_q.item() * (c_t * I_t)/N * h)
 
         #이거 샘플 몇개 뽑지? 일단 100개 해볼게
         B11 = pm.Poisson.dist(mu = S_t * P11).random(size = 100).mean()   
@@ -304,7 +304,7 @@ def SQEIR_model(
                 S, E, I, R, S_q, E_q, I_q = new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
                 idx += 1
         else:
-            for i in range(duration):
+            for i in range(duration-1):
                 if i%10 == 0:
                     print(I + I_q)
                 new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q = new_SQEIR(S, E, I, R, S_q, E_q, I_q, c0_i)
@@ -320,10 +320,71 @@ def SQEIR_model(
     return result
     
 # # 1번
-# result = SEIR_model()
+result = SEIR_model(total_duration=183, c0 = 40)
 
-# # 2번
-# result = SQEIR_model()
+dates = pd.date_range(start='2020-1-21', end='2020-7-21', freq='D')
+
+data_I = []
+if len(I_data) > len(result['S']):
+    data_I = I_data[:len(result['S'])]
+else:
+    a = [np.nan for i in range(len(result['S']) - len(I_data))]
+    data_I = I_data + a
+
+df = pd.DataFrame({'x': dates.values,
+                   'S': result['S'],
+                   'E': result['E'],
+                   'I': result['I'],
+                   'R': result['R'],
+                   'Data_I': data_I})
+
+plt.plot('x', 'S', data=df, color='red', label='Susceptible')
+plt.plot('x', 'E', data=df, color='orange', label='Exposed')
+plt.plot('x', 'I', data=df, color='green', label='Infectious')
+plt.plot('x', 'R', data=df, color='skyblue', label='Recovered')
+plt.plot('x', 'Data_I', data=df, color='black', label='Data')
+plt.legend()
+plt.title('SEIR model')
+
+ax = plt.gca()
+ax.set_xlabel('Date')
+ax.set_ylabel('Population')
+plt.savefig('all_SEIR_model.png', dpi=300)
+plt.show()
+print('finish')
+
+# 2번
+result = SQEIR_model(total_duration=[183], c0 = [40])
+
+dates = pd.date_range(start='2020-1-21', end='2020-7-21', freq='D')
+
+data_I = []
+if len(I_data) > len(result['S']):
+    data_I = I_data[:len(result['S'])]
+else:
+    a = [np.nan for i in range(len(result['S']) - len(I_data))]
+    data_I = I_data + a
+df = pd.DataFrame({'x': dates.values,
+                   'S': [sum(x) for x in zip(result['S'], result['S_q'])],
+                   'E': [sum(x) for x in zip(result['E'], result['E_q'])],
+                   'I': [sum(x) for x in zip(result['I'], result['I_q'])],
+                   'R': result['R'],
+                   'Data_I': data_I})
+plt.plot('x', 'S', data=df, color='red', label='Susceptible')
+plt.plot('x', 'E', data=df, color='orange', label='Exposed')
+plt.plot('x', 'I', data=df, color='green', label='Infectious')
+plt.plot('x', 'R', data=df, color='skyblue', label='Recovered')
+plt.plot('x', 'Data_I', data=df, color='black', label='Data')
+plt.legend()
+plt.title('SQEIR model')
+
+ax = plt.gca()
+ax.set_xlabel('Date')
+ax.set_ylabel('Population')
+plt.savefig('all_SQEIR_model.png', dpi=300)
+plt.show()
+print('finish')
+
 
 # 3번
 result = dict()
@@ -331,21 +392,9 @@ result = dict()
 # ~ 20200218 
 result1 = SEIR_model(total_duration=29, c0=40)
 print('first model finished')
-# 20200219(신천지) ~ 20200322(사회적 거리두기)
-result2 = SQEIR_model(total_duration=[33, 81], c0=[40, 6.6], S0=result1['S'][-1], E0=result1['E'][-1], I0=result1['I'][-1], R0=result1['R'][-1])
-print('second and third model finished')
-# # 20200323 ~ 20200611
-# result3 = SQEIR_model(
-#     total_duration=81,
-#     S0=result2['S'][-1],
-#     E0=result2['E'][-1],
-#     I0=result2['I'][-1],
-#     R0=result2['R'][-1],
-#     S_q0=result2['S_q'][-1],
-#     E_q0=result2['E_q'][-1],
-#     I_q0=result2['I_q'][-1],
-# )
-# print('third model finished')
+# 20200219(신천지) ~ 20200322(사회적 거리두기) & 20200323 ~ 20200611
+result2 = SQEIR_model(total_duration=[33, 44, 37], c0=[40, 6.6, 30], S0=result1['S'][-1], E0=result1['E'][-1], I0=result1['I'][-1], R0=result1['R'][-1])
+print('second model finished')
 
 result['S'] = result1['S'] + result2['S']
 result['E'] = result1['E'] + result2['E']
@@ -355,15 +404,9 @@ result['S_q'] = [0 for i in range(len(result1['S'])) ] + result2['S_q']
 result['E_q'] = [0 for i in range(len(result1['E'])) ] + result2['E_q']
 result['I_q'] = [0 for i in range(len(result1['I'])) ] + result2['I_q']
 
-data_I = []
+dates = pd.date_range(start='2020-1-21', end='2020-7-21', freq='D')
 
-if len(I_data) > len(result['S']):
-    data_I = I_data[:len(result['S'])]
-else:
-    a = [0 for i in range(len(result['S']) - len(I_data))]
-    data_I = I_data + a
-    
-df = pd.DataFrame({'x': list(range(len(result['S']))),
+df = pd.DataFrame({'x': dates.values,
                    'S': [sum(x) for x in zip(result['S'], result['S_q'])],
                    'E': [sum(x) for x in zip(result['E'], result['E_q'])],
                    'I': [sum(x) for x in zip(result['I'], result['I_q'])],
@@ -376,5 +419,11 @@ plt.plot('x', 'I', data=df, color='green', label='Infectious')
 plt.plot('x', 'R', data=df, color='skyblue', label='Recovered')
 plt.plot('x', 'Data_I', data=df, color='black', label='Data')
 plt.legend()
+
+ax = plt.gca()
+ax.set_xlabel('Date')
+ax.set_ylabel('Population')
+plt.savefig('Reality_model.png', dpi=300)
 plt.show()
+
 print('finish')
