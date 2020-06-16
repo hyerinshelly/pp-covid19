@@ -130,14 +130,19 @@ def SEIR_model(
                 break
             if I > 100:
                 flag = 1
+            if idx%10 == 0:
+                print(I)
             new_S, new_E, new_I, new_R = new_SEIR(S, E, I, R)
             result['S'].append(new_S)
             result['E'].append(new_E)
             result['I'].append(new_I)
             result['R'].append(new_R)
             S, E, I, R = new_S, new_E, new_I, new_R
+            idx+=1
     else:
         for i in range(total_duration):
+            if i%10 == 0:
+                print(I)
             new_S, new_E, new_I, new_R = new_SEIR(S, E, I, R)
             result['S'].append(new_S)
             result['E'].append(new_E)
@@ -149,6 +154,7 @@ def SEIR_model(
 
 
 def SQEIR_model(
+    total_duration = -1,
     # constants
     N = 51844627,
     c0 = 6.6,
@@ -157,16 +163,19 @@ def SQEIR_model(
     E0 = -1,
     I0 = -1,
     R0 = -1,
+    S_q0 = -1,
+    E_q0 = -1,
+    I_q0 = -1,
 ):
     # Initials
     S0 = N if S0 == -1 else S0
     E0 = 0 if E0 == -1 else E0
     I0 = 1 if I0 == -1 else I0
     R0 = 0 if R0 == -1 else R0
-    # Added for Quarantine #이거 정해야함!
-    S_q0 = 0
-    E_q0 = 0
-    I_q0 = 0
+    # Added for Quarantine
+    S_q0 = 0 if S_q0 == -1 else S_q0
+    E_q0 = 0 if E_q0 == -1 else E_q0
+    I_q0 = 0 if I_q0 == -1 else I_q0
 
     # Population accumulation of each cases
     month_confirmed = sum(data['confirmed'].values())
@@ -180,7 +189,7 @@ def SQEIR_model(
     g0 = 0.08 #month_released/month_confirmed
     a0 = month_death/month_confirmed
     # Added for Quarantine
-    q0 = 0.9 #논문값
+    q0 = 0.9 
     l0 = 1/14
     d0 = 0.1  #논문값 #증상까지 다 나타나고선 격리되는 비율
     g_q0 = 0.17 #논문값
@@ -267,59 +276,93 @@ def SQEIR_model(
 
         return new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
 
-    result = {'S': [S0], 'E': [E0], 'I':[I0], 'R':[R0], 'S_q':[S_q0], 'E_q':[S_q0], 'I_q':[S_q0]}
+    result = {'S': [S0], 'E': [E0], 'I':[I0], 'R':[R0], 'S_q':[S_q0], 'E_q':[E_q0], 'I_q':[I_q0]}
     S, E, I, R, S_q, E_q, I_q = S0, E0, I0, R0, S_q0, E_q0, I_q0
     flag = 0
     idx = 0
-    while True:
-        if flag == 1 and I <= 2:
-            break
-        if I > 10:
-            flag = 1
-        if idx%10 == 0:
-            print(I)
-        new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q = new_SQEIR(S, E, I, R, S_q, E_q, I_q)
-        result['S'].append(new_S)
-        result['E'].append(new_E)
-        result['I'].append(new_I)
-        result['R'].append(new_R)
-        result['S_q'].append(new_S_q)
-        result['E_q'].append(new_E_q)
-        result['I_q'].append(new_I_q)
-        S, E, I, R, S_q, E_q, I_q = new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
-        idx += 1
-    return result
-# 1번
-result = SEIR_model()
+    if total_duration == -1:
+        while True:
+            if flag == 1 and I <= 2:
+                break
+            if I > 10:
+                flag = 1
+            if idx%10 == 0:
+                print(I + I_q)
+            new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q = new_SQEIR(S, E, I, R, S_q, E_q, I_q)
+            result['S'].append(new_S)
+            result['E'].append(new_E)
+            result['I'].append(new_I)
+            result['R'].append(new_R)
+            result['S_q'].append(new_S_q)
+            result['E_q'].append(new_E_q)
+            result['I_q'].append(new_I_q)
+            S, E, I, R, S_q, E_q, I_q = new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
+            idx += 1
+    else:
+        for i in range(total_duration):
+            if i%10 == 0:
+                print(I + I_q)
+            new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q = new_SQEIR(S, E, I, R, S_q, E_q, I_q)
+            result['S'].append(new_S)
+            result['E'].append(new_E)
+            result['I'].append(new_I)
+            result['R'].append(new_R)
+            result['S_q'].append(new_S_q)
+            result['E_q'].append(new_E_q)
+            result['I_q'].append(new_I_q)
+            S, E, I, R, S_q, E_q, I_q = new_S, new_E, new_I, new_R, new_S_q, new_E_q, new_I_q
 
-# 2번
-result = SQEIR_model()
+    return result
+# # 1번
+# result = SEIR_model()
+
+# # 2번
+# result = SQEIR_model()
 
 # 3번
 result = dict()
 
 # ~ 20200218 
-result1 = SEIR_model(total_duration=30)
-# 20200219(신천지) ~ 20200405(자가격리 법제화)
-result2 = SEIR_model(total_duration=45, c0=30, S0=result1['S'][-1], E0=result1['E'][-1], I0=result1['I'][-1], R0=result1['R'][-1])
-# 20200406 ~ 
-result3 = SQEIR_model(S0=result2['S'][-1], E0=result2['E'][-1], I0=result2['I'][-1], R0=result2['R'][-1])
+result1 = SEIR_model(total_duration=29, c0=40)
+print('first model finished')
+# 20200219(신천지) ~ 20200322(사회적 거리두기)
+result2 = SQEIR_model(total_duration=33, c0=40, S0=result1['S'][-1], E0=result1['E'][-1], I0=result1['I'][-1], R0=result1['R'][-1])
+print('second model finished')
+# 20200323 ~ 20200611
+result3 = SQEIR_model(
+    total_duration=81,
+    S0=result2['S'][-1],
+    E0=result2['E'][-1],
+    I0=result2['I'][-1],
+    R0=result2['R'][-1],
+    S_q0=result2['S_q'][-1],
+    E_q0=result2['E_q'][-1],
+    I_q0=result2['I_q'][-1],
+)
+print('third model finished')
 
 result['S'] = result1['S'] + result2['S'] + result3['S']
 result['E'] = result1['E'] + result2['E'] + result3['E']
 result['I'] = result1['I'] + result2['I'] + result3['I']
 result['R'] = result1['R'] + result2['R'] + result3['R']
-result['S_q'] = [0 for i in range(len(result1['S']) + len(result2['S'])) ] +result3['S_q']
-result['E_q'] = [0 for i in range(len(result1['S']) + len(result2['S'])) ] + result3['E_q']
-result['I_q'] = [0 for i in range(len(result1['S']) + len(result2['S'])) ] + result3['I_q']
+result['S_q'] = [0 for i in range(len(result1['S'])) ] + result2['S_q'] + result3['S_q']
+result['E_q'] = [0 for i in range(len(result1['E'])) ] + result2['E_q'] + result3['E_q']
+result['I_q'] = [0 for i in range(len(result1['I'])) ] + result2['I_q'] + result3['I_q']
 
-print(len(result['R']), len([sum(x) for x in zip(result['S'], result['S_q'])]), len(result['R']))
+data_I = []
+
+if len(I_data) > len(result['S']):
+    data_I = I_data[:len(result['S'])]
+else:
+    a = [0 for i in range(len(result['S']) - len(I_data))]
+    data_I = I_data + a
+    
 df = pd.DataFrame({'x': list(range(len(result['S']))),
                    'S': [sum(x) for x in zip(result['S'], result['S_q'])],
                    'E': [sum(x) for x in zip(result['E'], result['E_q'])],
                    'I': [sum(x) for x in zip(result['I'], result['I_q'])],
                    'R': result['R'],
-                   'Data_I': I_data[:128]})
+                   'Data_I': data_I})
 
 plt.plot('x', 'S', data=df, color='red', label='Susceptible')
 plt.plot('x', 'E', data=df, color='orange', label='Exposed')
